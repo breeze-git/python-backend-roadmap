@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>My Board</title>
+
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        html, body {
+            margin: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background: #ffffff;
+        }
+
+        #viewport {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            cursor: grab;
+            user-select: none;
+        }
+
+        #viewport.dragging {
+            cursor: grabbing;
+        }
+
+        #board {
+            position: absolute;
+            left: 0;
+            top: 0;
+
+            max-width: none;
+            width: auto;
+            height: auto;
+
+            transform-origin: 0 0;
+
+            pointer-events: none;
+        }
+    </style>
+</head>
+
+<body>
+
+<div id="viewport">
+    <img id="board" src="board.svg" alt="Board">
+</div>
+
+<script>
+    const viewport = document.getElementById("viewport");
+    const board = document.getElementById("board");
+
+    let scale = 1;
+    let x = 0;
+    let y = 0;
+
+    let dragging = false;
+    let startMouseX = 0;
+    let startMouseY = 0;
+    let startX = 0;
+    let startY = 0;
+
+    function update() {
+        board.style.transform =
+            `translate(${x}px, ${y}px) scale(${scale})`;
+    }
+
+    // Zoom
+    viewport.addEventListener("wheel", (event) => {
+        event.preventDefault();
+
+        const rect = viewport.getBoundingClientRect();
+
+        const mouseX = event.clientX - rect.left;
+        const mouseY = event.clientY - rect.top;
+
+        const oldScale = scale;
+
+        if (event.deltaY < 0) {
+            scale *= 1.1;
+        } else {
+            scale /= 1.1;
+        }
+
+        scale = Math.max(0.1, Math.min(scale, 10));
+
+        // Zoom towards cursor
+        x = mouseX - (mouseX - x) * (scale / oldScale);
+        y = mouseY - (mouseY - y) * (scale / oldScale);
+
+        update();
+    }, { passive: false });
+
+
+    // Start dragging
+    viewport.addEventListener("mousedown", (event) => {
+        if (event.button !== 0) {
+            return;
+        }
+
+        dragging = true;
+
+        startMouseX = event.clientX;
+        startMouseY = event.clientY;
+
+        startX = x;
+        startY = y;
+
+        viewport.classList.add("dragging");
+    });
+
+
+    // Dragging
+    window.addEventListener("mousemove", (event) => {
+        if (!dragging) {
+            return;
+        }
+
+        x = startX + event.clientX - startMouseX;
+        y = startY + event.clientY - startMouseY;
+
+        update();
+    });
+
+
+    // Stop dragging
+    window.addEventListener("mouseup", () => {
+        dragging = false;
+        viewport.classList.remove("dragging");
+    });
+
+
+    // Touch support
+    let lastTouchX = 0;
+    let lastTouchY = 0;
+
+    viewport.addEventListener("touchstart", (event) => {
+        if (event.touches.length !== 1) {
+            return;
+        }
+
+        const touch = event.touches[0];
+
+        lastTouchX = touch.clientX;
+        lastTouchY = touch.clientY;
+    }, { passive: true });
+
+
+    viewport.addEventListener("touchmove", (event) => {
+        if (event.touches.length !== 1) {
+            return;
+        }
+
+        event.preventDefault();
+
+        const touch = event.touches[0];
+
+        x += touch.clientX - lastTouchX;
+        y += touch.clientY - lastTouchY;
+
+        lastTouchX = touch.clientX;
+        lastTouchY = touch.clientY;
+
+        update();
+    }, { passive: false });
+
+
+    // Initial positioning
+    board.addEventListener("load", () => {
+        const viewportWidth = viewport.clientWidth;
+        const viewportHeight = viewport.clientHeight;
+
+        const boardWidth = board.naturalWidth;
+        const boardHeight = board.naturalHeight;
+
+        // Fit board to screen initially
+        scale = Math.min(
+            viewportWidth / boardWidth,
+            viewportHeight / boardHeight
+        );
+
+        x = (viewportWidth - boardWidth * scale) / 2;
+        y = (viewportHeight - boardHeight * scale) / 2;
+
+        update();
+    });
+</script>
+
+</body>
+</html>
